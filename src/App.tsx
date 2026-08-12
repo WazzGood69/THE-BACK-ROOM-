@@ -10,21 +10,20 @@ import {
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type TabMode = "browser" | "editor"
+type LoadState = "idle" | "loading" | "loaded" | "blocked" | "error"
 
 interface Tab {
   id: string
   mode: TabMode
   url: string
   title: string
-  loading: boolean
+  loadState: LoadState
   canGoBack: boolean
   canGoForward: boolean
   history: string[]
   historyIndex: number
   favicon: string
-  error: string | null
-  content: string | null
-  // editor-mode fields
+  // editor
   editorHtml: string
   editorRendered: string | null
 }
@@ -32,64 +31,88 @@ interface Tab {
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const NEW_TAB_URL = "about:newtab"
-const HOME_URL    = "https://en.wikipedia.org/wiki/Main_Page"
+const HOME_URL    = "https://en.m.wikipedia.org/wiki/Main_Page"
 
-const PROXIES = [
-  (u: string) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-  (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  (u: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
-]
-
+// Sites confirmed to allow iframe embedding
 const QUICK_LINKS = [
-  { label: "Wikipedia",    url: "https://en.wikipedia.org/wiki/Main_Page", bg: "#3366cc" },
-  { label: "Hacker News",  url: "https://news.ycombinator.com",            bg: "#ff6600" },
-  { label: "MDN Docs",     url: "https://developer.mozilla.org",           bg: "#0d7377" },
-  { label: "Archive.org",  url: "https://archive.org",                     bg: "#428bca" },
-  { label: "DuckDuckGo",   url: "https://html.duckduckgo.com/html",        bg: "#de5833" },
-  { label: "W3Schools",    url: "https://www.w3schools.com",               bg: "#4cae4c" },
-  { label: "OpenStreetMap",url: "https://www.openstreetmap.org",           bg: "#7ebc6f" },
-  { label: "Lobsters",     url: "https://lobste.rs",                       bg: "#ac130d" },
+  { label: "Wikipedia",    url: "https://en.m.wikipedia.org/wiki/Main_Page",  bg: "#3366cc" },
+  { label: "Hacker News",  url: "https://news.ycombinator.com",               bg: "#ff6600" },
+  { label: "NASA",         url: "https://www.nasa.gov",                       bg: "#1b4f8a" },
+  { label: "Archive.org",  url: "https://archive.org",                        bg: "#428bca" },
+  { label: "OpenStreetMap",url: "https://www.openstreetmap.org",              bg: "#7ebc6f" },
+  { label: "W3Schools",    url: "https://www.w3schools.com",                  bg: "#4cae4c" },
+  { label: "itch.io",      url: "https://itch.io",                            bg: "#fa5c5c" },
+  { label: "Lobsters",     url: "https://lobste.rs",                          bg: "#ac130d" },
 ]
 
 const DEFAULT_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>My Page</title>
+  <title>Sandbox</title>
   <style>
+    * { box-sizing: border-box; }
     body {
       font-family: system-ui, sans-serif;
-      max-width: 640px;
-      margin: 40px auto;
-      padding: 0 20px;
-      background: #fafafa;
-      color: #111;
+      max-width: 680px; margin: 40px auto;
+      padding: 0 24px; background: #fafafa; color: #111;
     }
-    h1 { color: #2563eb; }
+    h1 { color: #2563eb; margin-bottom: 6px; }
+    p  { color: #555; line-height: 1.6; }
+    .card {
+      background: #fff; border: 1px solid #e4e4e7;
+      border-radius: 10px; padding: 20px;
+      margin: 20px 0; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
     button {
-      background: #2563eb; color: #fff;
-      border: none; padding: 8px 18px;
-      border-radius: 6px; cursor: pointer;
-      font-size: 14px;
+      background: #2563eb; color: #fff; border: none;
+      padding: 9px 20px; border-radius: 7px; cursor: pointer;
+      font-size: 14px; margin-right: 8px; margin-bottom: 8px;
+      transition: background .15s;
     }
     button:hover { background: #1d4ed8; }
-    #out { margin-top: 14px; font-weight: 600; color: #16a34a; }
+    button.red   { background: #ef4444; }
+    button.red:hover { background: #dc2626; }
+    input {
+      border: 1px solid #d1d5db; border-radius: 6px;
+      padding: 8px 12px; font-size: 14px; width: 100%;
+      margin-bottom: 8px; outline: none;
+    }
+    input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+    #log {
+      background: #18181b; color: #a3e635;
+      border-radius: 8px; padding: 14px 16px;
+      font-family: monospace; font-size: 13px;
+      min-height: 80px; white-space: pre-wrap; margin-top: 8px;
+    }
   </style>
 </head>
 <body>
-  <h1>Hello from the HTML Editor!</h1>
-  <p>Write any HTML, CSS, and JavaScript here and hit <strong>Run</strong>.</p>
-  <button onclick="document.getElementById('out').textContent = 'Button clicked at ' + new Date().toLocaleTimeString()">
-    Click Me
-  </button>
-  <div id="out"></div>
+  <h1>🧪 HTML Sandbox</h1>
+  <p>Write HTML, CSS &amp; JavaScript here. Hit <strong>▶ Run</strong> to execute.</p>
+
+  <div class="card">
+    <h3 style="margin:0 0 12px">Interactive Demo</h3>
+    <input id="inp" placeholder="Type something and press Enter…" onkeydown="if(event.key==='Enter')log(this.value)" />
+    <button onclick="log('Hello at ' + new Date().toLocaleTimeString())">Say Hello</button>
+    <button class="red" onclick="document.getElementById('log').textContent=''">Clear</button>
+    <div id="log">// Output appears here</div>
+  </div>
+
+  <script>
+    function log(msg) {
+      const el = document.getElementById('log');
+      el.textContent += (el.textContent === '// Output appears here' ? '' : '\\n') + '> ' + msg;
+      if (el.textContent.startsWith('// Output')) el.textContent = '> ' + msg;
+    }
+  </script>
 </body>
 </html>`
 
 // ── Utilities ──────────────────────────────────────────────────────────────
 
-let _id = 0
-function uid() { return `t${++_id}` }
+let _seq = 0
+const uid = () => `t${++_seq}`
 
 function normalizeUrl(raw: string): string {
   raw = raw.trim()
@@ -100,9 +123,9 @@ function normalizeUrl(raw: string): string {
   return `https://html.duckduckgo.com/html?q=${encodeURIComponent(raw)}`
 }
 
-function displayUrl(url: string) {
+function prettyUrl(url: string) {
   if (url === NEW_TAB_URL) return ""
-  try { const u = new URL(url); return u.hostname + u.pathname + (u.search || "") }
+  try { const u = new URL(url); return u.hostname + (u.pathname !== "/" ? u.pathname : "") }
   catch { return url }
 }
 
@@ -114,135 +137,106 @@ function faviconFor(url: string) {
 function blankTab(url = NEW_TAB_URL): Tab {
   return {
     id: uid(), mode: "browser",
-    url, title: url === NEW_TAB_URL ? "New Tab" : url,
-    loading: url !== NEW_TAB_URL,
+    url, title: url === NEW_TAB_URL ? "New Tab" : prettyUrl(url),
+    loadState: url === NEW_TAB_URL ? "idle" : "loading",
     canGoBack: false, canGoForward: false,
     history: [url], historyIndex: 0,
     favicon: url !== NEW_TAB_URL ? faviconFor(url) : "",
-    error: null, content: null,
     editorHtml: DEFAULT_HTML, editorRendered: null,
   }
 }
 
-async function fetchWithProxies(url: string): Promise<{ html: string; title: string }> {
-  let lastErr: unknown
-  for (const proxy of PROXIES) {
-    try {
-      const res = await fetch(proxy(url), { signal: AbortSignal.timeout(12000) })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      let html = await res.text()
-      // Inject base so relative resources resolve
-      const base = `<base href="${url}" target="_self">`
-      html = /<head[^>]*>/i.test(html)
-        ? html.replace(/(<head[^>]*>)/i, `$1${base}`)
-        : base + html
-      const titleM = html.match(/<title[^>]*>([^<]*)<\/title>/i)
-      return { html, title: titleM ? titleM[1].trim() : displayUrl(url) }
-    } catch (e) {
-      lastErr = e
-    }
-  }
-  throw lastErr
-}
-
-// ── Main component ─────────────────────────────────────────────────────────
+// ── App ────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [tabs, setTabs]           = useState<Tab[]>([blankTab()])
-  const [activeId, setActiveId]   = useState<string>(() => tabs[0].id)
-  const [addrInput, setAddrInput] = useState("")
+  const [tabs, setTabs]         = useState<Tab[]>([blankTab()])
+  const [activeId, setActiveId] = useState<string>(() => tabs[0].id)
+  const [addrInput, setAddr]    = useState("")
   const [addrFocus, setAddrFocus] = useState(false)
-  const [showEditor, setShowEditor] = useState(false)
-  const aborts = useRef<Record<string, AbortController>>({})
+  const loadTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
-  const activeTab = tabs.find(t => t.id === activeId) ?? tabs[0]
+  const active = tabs.find(t => t.id === activeId) ?? tabs[0]
 
-  const patchTab = useCallback((id: string, patch: Partial<Tab>) =>
-    setTabs(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t)), [])
+  const patch = useCallback((id: string, p: Partial<Tab>) =>
+    setTabs(prev => prev.map(t => t.id === id ? { ...t, ...p } : t)), [])
 
-  // Keep address bar in sync
   useEffect(() => {
-    if (!addrFocus) setAddrInput(activeTab.url === NEW_TAB_URL ? "" : activeTab.url)
-  }, [activeTab.url, activeTab.id, addrFocus])
+    if (!addrFocus) setAddr(active.url === NEW_TAB_URL ? "" : active.url)
+  }, [active.url, active.id, addrFocus])
 
-  // Sync editor panel visibility
-  useEffect(() => {
-    setShowEditor(activeTab.mode === "editor")
-  }, [activeTab.mode, activeTab.id])
+  // Navigate the active tab to a URL
+  const go = useCallback((tabId: string, url: string, push = true) => {
+    clearTimeout(loadTimers.current[tabId])
 
-  const loadUrl = useCallback(async (tabId: string, url: string, push = true) => {
     if (url === NEW_TAB_URL) {
       setTabs(prev => prev.map(t => {
         if (t.id !== tabId) return t
         const hist = push ? [...t.history.slice(0, t.historyIndex + 1), url] : t.history
         const idx  = push ? hist.length - 1 : t.historyIndex
-        return { ...t, url, title: "New Tab", loading: false, content: null, error: null,
-          favicon: "", history: hist, historyIndex: idx, mode: "browser",
+        return { ...t, url, title: "New Tab", loadState: "idle", favicon: "",
+          history: hist, historyIndex: idx,
           canGoBack: idx > 0, canGoForward: idx < hist.length - 1 }
       }))
       return
     }
 
-    aborts.current[tabId]?.abort()
-    const ctrl = new AbortController()
-    aborts.current[tabId] = ctrl
-
     setTabs(prev => prev.map(t => {
       if (t.id !== tabId) return t
       const hist = push ? [...t.history.slice(0, t.historyIndex + 1), url] : t.history
       const idx  = push ? hist.length - 1 : t.historyIndex
-      return { ...t, url, displayUrl: displayUrl(url), title: displayUrl(url) || url,
-        loading: true, content: null, error: null, favicon: faviconFor(url),
-        history: hist, historyIndex: idx, mode: "browser",
+      return { ...t, url, title: prettyUrl(url), loadState: "loading",
+        favicon: faviconFor(url), history: hist, historyIndex: idx,
         canGoBack: idx > 0, canGoForward: idx < hist.length - 1 }
     }))
 
-    try {
-      const { html, title } = await fetchWithProxies(url)
-      if (ctrl.signal.aborted) return
-      patchTab(tabId, { content: html, title, loading: false })
-    } catch (e: unknown) {
-      if (ctrl.signal.aborted) return
-      patchTab(tabId, { loading: false, error: String(e instanceof Error ? e.message : e), title: "Error" })
-    }
-  }, [patchTab])
+    // Timeout: if iframe doesn't load within 15s, mark as error
+    loadTimers.current[tabId] = setTimeout(() => {
+      patch(tabId, { loadState: "error", title: "Timeout" })
+    }, 15000)
+  }, [patch])
 
-  const navigate = useCallback((input: string) => {
-    loadUrl(activeTab.id, normalizeUrl(input))
-  }, [activeTab.id, loadUrl])
+  const onIframeLoad = useCallback((tabId: string, url: string) => {
+    clearTimeout(loadTimers.current[tabId])
+    patch(tabId, { loadState: "loaded", title: prettyUrl(url) })
+  }, [patch])
+
+  const onIframeError = useCallback((tabId: string) => {
+    clearTimeout(loadTimers.current[tabId])
+    patch(tabId, { loadState: "error", title: "Error" })
+  }, [patch])
+
+  const navigate = (input: string) => go(active.id, normalizeUrl(input))
 
   const goBack = () => {
-    const t = activeTab; if (!t.canGoBack) return
-    const idx = t.historyIndex - 1
-    setTabs(prev => prev.map(tab => tab.id === t.id
-      ? { ...tab, historyIndex: idx, canGoBack: idx > 0, canGoForward: true } : tab))
-    loadUrl(t.id, t.history[idx], false)
+    if (!active.canGoBack) return
+    const idx = active.historyIndex - 1
+    setTabs(prev => prev.map(t => t.id === active.id
+      ? { ...t, historyIndex: idx, canGoBack: idx > 0, canGoForward: true } : t))
+    go(active.id, active.history[idx], false)
   }
   const goForward = () => {
-    const t = activeTab; if (!t.canGoForward) return
-    const idx = t.historyIndex + 1
-    setTabs(prev => prev.map(tab => tab.id === t.id
-      ? { ...tab, historyIndex: idx, canGoBack: true, canGoForward: idx < tab.history.length - 1 } : tab))
-    loadUrl(t.id, t.history[idx], false)
+    if (!active.canGoForward) return
+    const idx = active.historyIndex + 1
+    setTabs(prev => prev.map(t => t.id === active.id
+      ? { ...t, historyIndex: idx, canGoBack: true, canGoForward: idx < t.history.length - 1 } : t))
+    go(active.id, active.history[idx], false)
   }
-  const refresh = () => { if (activeTab.url !== NEW_TAB_URL && activeTab.mode === "browser") loadUrl(activeTab.id, activeTab.url, false) }
+  const refresh = () => { if (active.url !== NEW_TAB_URL && active.mode === "browser") go(active.id, active.url, false) }
 
   const openTab = (url = NEW_TAB_URL) => {
     const tab = blankTab(url)
     setTabs(prev => [...prev, tab])
     setActiveId(tab.id)
-    if (url !== NEW_TAB_URL) loadUrl(tab.id, url)
+    if (url !== NEW_TAB_URL) go(tab.id, url)
   }
-
   const openEditorTab = () => {
-    const tab: Tab = { ...blankTab(NEW_TAB_URL), mode: "editor", title: "HTML Editor" }
+    const tab: Tab = { ...blankTab(), mode: "editor", title: "HTML Editor", loadState: "idle" }
     setTabs(prev => [...prev, tab])
     setActiveId(tab.id)
   }
-
   const closeTab = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    aborts.current[id]?.abort()
+    clearTimeout(loadTimers.current[id])
     setTabs(prev => {
       if (prev.length === 1) return [blankTab()]
       const next = prev.filter(t => t.id !== id)
@@ -254,13 +248,11 @@ export default function App() {
     })
   }
 
-  const runEditor = () => {
-    patchTab(activeTab.id, { editorRendered: activeTab.editorHtml })
-  }
+  const runEditor = () => patch(active.id, { editorRendered: active.editorHtml })
 
-  const addrKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") { navigate(addrInput); e.currentTarget.blur() }
-    if (e.key === "Escape") { setAddrInput(activeTab.url === NEW_TAB_URL ? "" : activeTab.url); e.currentTarget.blur() }
+  const addrKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter")  { navigate(addrInput); e.currentTarget.blur() }
+    if (e.key === "Escape") { setAddr(active.url === NEW_TAB_URL ? "" : active.url); e.currentTarget.blur() }
   }
 
   return (
@@ -269,112 +261,141 @@ export default function App() {
       <div className="tabstrip">
         <div className="tabs-row">
           {tabs.map(tab => (
-            <div
-              key={tab.id}
-              className={`tab ${tab.id === activeId ? "tab--active" : ""}`}
-              onClick={() => setActiveId(tab.id)}
-              title={tab.title}
-            >
+            <div key={tab.id} className={`tab ${tab.id === activeId ? "tab--active" : ""}`}
+              onClick={() => setActiveId(tab.id)} title={tab.title}>
               {tab.mode === "editor"
                 ? <span className="tab-ico editor-ico">{"</>"}</span>
                 : tab.favicon
-                  ? <img src={tab.favicon} className="tab-fav" alt="" onError={e => (e.currentTarget.style.display="none")} />
-                  : <span className="tab-ico">⬡</span>}
+                  ? <img src={tab.favicon} className="tab-fav" alt=""
+                      onError={e => (e.currentTarget.style.display = "none")} />
+                  : <span className="tab-ico">○</span>}
               <span className="tab-label">{tab.title}</span>
-              {tab.loading && <span className="tab-spin" />}
-              <span className="tab-x" onClick={e => closeTab(tab.id, e)} role="button" aria-label="close">✕</span>
+              {tab.loadState === "loading" && <span className="tab-spin" />}
+              <span className="tab-x" onClick={e => closeTab(tab.id, e)} role="button" aria-label="close tab">✕</span>
             </div>
           ))}
         </div>
         <div className="tab-actions">
           <button className="icon-btn" onClick={() => openTab()} title="New tab">+</button>
-          <button className="icon-btn editor-btn" onClick={openEditorTab} title="HTML Editor">{"</>"}</button>
+          <button className="icon-btn editor-btn" onClick={openEditorTab} title="HTML editor">{"</>"}</button>
         </div>
       </div>
 
       {/* Toolbar */}
       <div className="toolbar">
-        <NavBtn icon="←" title="Back"    onClick={goBack}    disabled={!activeTab.canGoBack} />
-        <NavBtn icon="→" title="Forward" onClick={goForward} disabled={!activeTab.canGoForward} />
-        <NavBtn icon="↺" title="Refresh" onClick={refresh}   disabled={activeTab.loading || activeTab.mode === "editor"} />
-        <NavBtn icon="⌂" title="Home"    onClick={() => loadUrl(activeTab.id, HOME_URL)} />
+        <Nb icon="←" title="Back"    onClick={goBack}    off={!active.canGoBack} />
+        <Nb icon="→" title="Forward" onClick={goForward} off={!active.canGoForward} />
+        <Nb icon="↺" title="Refresh" onClick={refresh}   off={active.loadState === "loading" || active.mode === "editor"} />
+        <Nb icon="⌂" title="Home"    onClick={() => go(active.id, HOME_URL)} />
 
         <div className={`addr-wrap ${addrFocus ? "addr-focus" : ""}`}>
-          {activeTab.mode === "editor"
-            ? <span className="addr-badge editor-badge">{"</>"} HTML Editor</span>
+          {active.mode === "editor"
+            ? <span className="addr-badge">{"</>"} HTML Editor</span>
             : <>
-                {activeTab.url !== NEW_TAB_URL && !addrFocus && (
-                  <span className="addr-scheme">{activeTab.url.startsWith("https") ? "🔒" : "⚠️"}</span>
+                {active.url !== NEW_TAB_URL && !addrFocus && (
+                  <span className="addr-scheme">
+                    {active.url.startsWith("https") ? "🔒" : "🌐"}
+                  </span>
                 )}
                 <input
                   className="addr-input"
-                  value={addrFocus ? addrInput : (activeTab.url === NEW_TAB_URL ? "" : activeTab.url)}
-                  onChange={e => setAddrInput(e.target.value)}
-                  onFocus={e => { setAddrFocus(true); setAddrInput(activeTab.url === NEW_TAB_URL ? "" : activeTab.url); setTimeout(() => e.target.select(), 0) }}
+                  value={addrFocus ? addrInput : (active.url === NEW_TAB_URL ? "" : active.url)}
+                  onChange={e => setAddr(e.target.value)}
+                  onFocus={e => { setAddrFocus(true); setAddr(active.url === NEW_TAB_URL ? "" : active.url); setTimeout(() => e.target.select(), 0) }}
                   onBlur={() => setAddrFocus(false)}
-                  onKeyDown={addrKeyDown}
-                  placeholder="Search or enter URL…"
+                  onKeyDown={addrKey}
+                  placeholder="Enter a URL or search…"
                   spellCheck={false}
                 />
-                {activeTab.loading && <span className="addr-bar-loader" />}
+                {active.loadState === "loading" && <span className="addr-loader" />}
               </>}
         </div>
 
-        {activeTab.mode === "editor"
+        {active.mode === "editor"
           ? <button className="run-btn" onClick={runEditor}>▶ Run</button>
-          : <NavBtn icon="⧉" title="Duplicate in new tab" onClick={() => activeTab.url !== NEW_TAB_URL && openTab(activeTab.url)} />}
+          : <Nb icon="⧉" title="Duplicate tab" onClick={() => active.url !== NEW_TAB_URL && openTab(active.url)} />}
       </div>
 
       {/* Content */}
       <div className="content">
-        {activeTab.mode === "editor"
+        {active.mode === "editor"
           ? <EditorPane
-              key={activeTab.id}
-              html={activeTab.editorHtml}
-              rendered={activeTab.editorRendered}
-              onChange={v => patchTab(activeTab.id, { editorHtml: v })}
+              key={active.id}
+              html={active.editorHtml}
+              rendered={active.editorRendered}
+              onChange={v => patch(active.id, { editorHtml: v })}
               onRun={runEditor}
             />
-          : activeTab.url === NEW_TAB_URL
-            ? <NewTab onNavigate={url => loadUrl(activeTab.id, url)} onOpen={openTab} onEditor={openEditorTab} />
-            : activeTab.error
-              ? <ErrPage error={activeTab.error} onRetry={refresh} />
-              : activeTab.loading && !activeTab.content
-                ? <LoadPage url={activeTab.url} />
-                : activeTab.content
-                  ? <iframe
-                      key={activeTab.id + "|" + activeTab.url}
-                      srcDoc={activeTab.content}
-                      className="page-frame"
-                      sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
-                      title={activeTab.title}
-                    />
-                  : null}
+          : active.url === NEW_TAB_URL
+            ? <NewTabPage onNavigate={url => go(active.id, url)} onOpen={openTab} onEditor={openEditorTab} />
+            : <>
+                {/* Always-present iframe — shown/hidden via CSS */}
+                {tabs.map(tab =>
+                  tab.mode === "browser" && tab.url !== NEW_TAB_URL
+                    ? <iframe
+                        key={tab.id}
+                        src={tab.url}
+                        className="page-frame"
+                        style={{ display: tab.id === activeId ? "block" : "none" }}
+                        sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"
+                        onLoad={() => onIframeLoad(tab.id, tab.url)}
+                        onError={() => onIframeError(tab.id)}
+                        title={tab.title}
+                        referrerPolicy="no-referrer"
+                      />
+                    : null
+                )}
+                {/* Overlay states */}
+                {active.loadState === "loading" && (
+                  <div className="overlay">
+                    <div className="spin-ring" />
+                    <p className="ov-url">{prettyUrl(active.url)}</p>
+                    <p className="ov-sub">Loading…</p>
+                  </div>
+                )}
+                {(active.loadState === "error" || active.loadState === "blocked") && (
+                  <div className="overlay">
+                    <div className="err-blob">!</div>
+                    <p className="ov-title">
+                      {active.loadState === "blocked" ? "Site blocked embedding" : "Page didn't load"}
+                    </p>
+                    <p className="ov-url">{prettyUrl(active.url)}</p>
+                    <p className="ov-sub">
+                      {active.loadState === "blocked"
+                        ? "This site refuses to load inside a frame (X-Frame-Options). Try opening it in a new tab directly."
+                        : "The page timed out or returned an error. Check the URL and try again."}
+                    </p>
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap", justifyContent:"center" }}>
+                      <button className="ov-btn" onClick={refresh}>↺ Retry</button>
+                      <a className="ov-btn ov-btn-ghost" href={active.url} target="_blank" rel="noopener noreferrer">
+                        ↗ Open directly
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </>}
       </div>
     </div>
   )
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────
+// ── Shared button ──────────────────────────────────────────────────────────
 
-function NavBtn({ icon, title, onClick, disabled = false }: { icon: string; title: string; onClick: () => void; disabled?: boolean }) {
-  return (
-    <button className="nav-btn" title={title} onClick={onClick} disabled={disabled}>
-      {icon}
-    </button>
-  )
+function Nb({ icon, title, onClick, off = false }: { icon: string; title: string; onClick: () => void; off?: boolean }) {
+  return <button className="nav-btn" title={title} onClick={onClick} disabled={off}>{icon}</button>
 }
+
+// ── HTML Editor pane ───────────────────────────────────────────────────────
 
 function EditorPane({ html, rendered, onChange, onRun }: {
   html: string; rendered: string | null
   onChange: (v: string) => void; onRun: () => void
 }) {
-  const handleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); onRun() }
     if (e.key === "Tab") {
       e.preventDefault()
-      const el = e.currentTarget
-      const s = el.selectionStart, end = el.selectionEnd
+      const el = e.currentTarget, s = el.selectionStart, end = el.selectionEnd
       const next = html.slice(0, s) + "  " + html.slice(end)
       onChange(next)
       setTimeout(() => { el.selectionStart = el.selectionEnd = s + 2 }, 0)
@@ -383,48 +404,35 @@ function EditorPane({ html, rendered, onChange, onRun }: {
   return (
     <div className="editor-pane">
       <div className="editor-left">
-        <div className="editor-header">
+        <div className="editor-hdr">
           <span>HTML · CSS · JS</span>
           <span className="editor-hint">Ctrl+Enter to run</span>
         </div>
-        <textarea
-          className="editor-textarea"
-          value={html}
-          onChange={e => onChange(e.target.value)}
-          onKeyDown={handleKey}
-          spellCheck={false}
-          autoComplete="off"
-          autoCorrect="off"
-        />
+        <textarea className="editor-ta" value={html} onChange={e => onChange(e.target.value)}
+          onKeyDown={onKey} spellCheck={false} autoComplete="off" autoCorrect="off" />
       </div>
       <div className="editor-right">
-        <div className="editor-header">
-          <span>Preview</span>
-          {!rendered && <span className="editor-hint">Hit ▶ Run to render</span>}
-        </div>
+        <div className="editor-hdr"><span>Preview</span></div>
         {rendered
-          ? <iframe
-              srcDoc={rendered}
-              className="editor-frame"
-              sandbox="allow-scripts allow-forms allow-modals"
-              title="HTML preview"
-            />
+          ? <iframe srcDoc={rendered} className="editor-frame"
+              sandbox="allow-scripts allow-forms allow-modals" title="preview" />
           : <div className="editor-empty">
-              <span className="editor-empty-icon">{"</>"}</span>
-              <p>Write HTML above, then click <strong>▶ Run</strong></p>
+              <span className="editor-empty-ico">{"</>"}</span>
+              <p>Click <strong>▶ Run</strong> to render your HTML</p>
             </div>}
       </div>
     </div>
   )
 }
 
-function NewTab({ onNavigate, onOpen, onEditor }: {
-  onNavigate: (url: string) => void
-  onOpen: (url: string) => void
-  onEditor: () => void
+// ── New Tab page ───────────────────────────────────────────────────────────
+
+function NewTabPage({ onNavigate, onOpen, onEditor }: {
+  onNavigate: (url: string) => void; onOpen: (url: string) => void; onEditor: () => void
 }) {
   const [q, setQ] = useState("")
-  const id = useId()
+  const inputId = useId()
+
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && q.trim()) onNavigate(normalizeUrl(q))
   }
@@ -436,82 +444,44 @@ function NewTab({ onNavigate, onOpen, onEditor }: {
           <span className="newtab-name">VaultBrowser</span>
         </div>
 
-        <div className="newtab-search-box">
-          <label htmlFor={id} className="sr-only">Search</label>
-          <SearchIcon />
-          <input
-            id={id}
-            className="newtab-q"
-            placeholder="Search the web or enter a URL…"
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            onKeyDown={onKey}
-            autoFocus
-          />
+        <div className="newtab-searchbox">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{flexShrink:0}}>
+            <circle cx="7.5" cy="7.5" r="5.5" stroke="#666" strokeWidth="1.6"/>
+            <path d="M12 12l4 4" stroke="#666" strokeWidth="1.6" strokeLinecap="round"/>
+          </svg>
+          <label htmlFor={inputId} className="sr-only">Search</label>
+          <input id={inputId} className="newtab-q" placeholder="Search or enter URL…"
+            value={q} onChange={e => setQ(e.target.value)} onKeyDown={onKey} autoFocus />
         </div>
 
         <div className="ql-grid">
           {QUICK_LINKS.map(ql => (
-            <button
-              key={ql.url}
-              className="ql-card"
+            <button key={ql.url} className="ql-card"
               onClick={() => onNavigate(ql.url)}
               onContextMenu={e => { e.preventDefault(); onOpen(ql.url) }}
-              title={ql.url}
-            >
-              <span className="ql-icon" style={{ background: ql.bg }}>{ql.label[0]}</span>
+              title={`${ql.url}\nRight-click → new tab`}>
+              <span className="ql-ico" style={{ background: ql.bg }}>{ql.label[0]}</span>
               <span className="ql-name">{ql.label}</span>
             </button>
           ))}
-          <button className="ql-card ql-editor-card" onClick={onEditor} title="Open HTML Editor">
-            <span className="ql-icon ql-icon-editor">{"</>"}</span>
+          <button className="ql-card ql-editor" onClick={onEditor} title="HTML/CSS/JS Editor">
+            <span className="ql-ico ql-ico-code">{"</>"}</span>
             <span className="ql-name">HTML Editor</span>
           </button>
         </div>
-
-        <p className="newtab-tip">Right-click a tile to open in a new tab</p>
+        <p className="newtab-tip">Right-click a tile to open in a new tab · Some sites block iframe embedding</p>
       </div>
-    </div>
-  )
-}
-
-function LoadPage({ url }: { url: string }) {
-  return (
-    <div className="status-page">
-      <div className="spin-ring" />
-      <p className="status-url">{displayUrl(url)}</p>
-      <p className="status-sub">Fetching through proxy…</p>
-    </div>
-  )
-}
-
-function ErrPage({ error, onRetry }: { error: string; onRetry: () => void }) {
-  return (
-    <div className="status-page">
-      <div className="err-blob">!</div>
-      <p className="status-title">Could not load page</p>
-      <p className="status-sub">{error}</p>
-      <button className="retry-btn" onClick={onRetry}>Try Again</button>
     </div>
   )
 }
 
 function GlobeIcon() {
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-      <circle cx="24" cy="24" r="22" stroke="#4f8ef7" strokeWidth="2" />
-      <ellipse cx="24" cy="24" rx="9" ry="22" stroke="#4f8ef7" strokeWidth="1.5" />
-      <line x1="2" y1="24" x2="46" y2="24" stroke="#4f8ef7" strokeWidth="1.5" />
-      <circle cx="24" cy="24" r="15" stroke="#4f8ef7" strokeWidth="1.5" strokeDasharray="4 3" />
-    </svg>
-  )
-}
-
-function SearchIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
-      <circle cx="7.5" cy="7.5" r="5.5" stroke="#666" strokeWidth="1.6" />
-      <path d="M12 12l4 4" stroke="#666" strokeWidth="1.6" strokeLinecap="round" />
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+      <circle cx="22" cy="22" r="20" stroke="#4f8ef7" strokeWidth="1.8"/>
+      <ellipse cx="22" cy="22" rx="8" ry="20" stroke="#4f8ef7" strokeWidth="1.4"/>
+      <line x1="2" y1="22" x2="42" y2="22" stroke="#4f8ef7" strokeWidth="1.4"/>
+      <circle cx="22" cy="22" r="13" stroke="#4f8ef7" strokeWidth="1.4" strokeDasharray="4 3"/>
     </svg>
   )
 }
