@@ -1,1 +1,10 @@
-{}
+{
+  "description": "Experience a fully functional virtual machine web browser that supports multiple tabs and runs applications seamlessly, ideal for developers and testers.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
