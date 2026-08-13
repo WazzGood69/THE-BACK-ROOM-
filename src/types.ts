@@ -1,11 +1,11 @@
-export type Theme = "black" | "white" | "oldschool"
+export type Theme = "black" | "white" | "oldschool" | "oxide" | "midnight" | "sepia"
 
 export interface User {
   id: string
   username: string
   passwordHash: string | null
   createdAt: number
-  avatar: string // emoji
+  avatar: string // emoji OR image URL (starts with http)
 }
 
 export interface FriendRequest {
@@ -35,6 +35,13 @@ export interface Conversation {
   createdAt: number
   lastMessage: string
   lastAt: number
+}
+
+export interface Broadcast {
+  id: string
+  text: string
+  type: "info" | "warning" | "update"
+  createdAt: number
 }
 
 export interface AppState {

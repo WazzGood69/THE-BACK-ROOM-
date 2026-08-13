@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>The Back Room — Server Setup</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #111113; --bg1: #18181c; --bg2: #202026;
+    --text: #eeeef4; --text2: #70708a;
+    --accent: #4a9eff; --green: #3ecf6e; --red: #f05062; --yellow: #f5c842;
+    --mono: 'JetBrains Mono', 'Courier New', monospace;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 15px; line-height: 1.6; }
+  .hero { background: linear-gradient(135deg, #0d1828 0%, #111113 60%); padding: 60px 0 40px; text-align: center; border-bottom: 1px solid #222; }
+  .hero h1 { font-size: 36px; font-weight: 300; letter-spacing: -.02em; color: #ddeeff; }
+  .hero p  { color: var(--text2); margin-top: 10px; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; }
+  .badge { display: inline-block; background: rgba(74,158,255,.12); border: 1px solid rgba(74,158,255,.25); border-radius: 20px; padding: 4px 14px; font-size: 12px; color: var(--accent); margin-top: 16px; }
+  .content { max-width: 760px; margin: 0 auto; padding: 50px 24px; display: flex; flex-direction: column; gap: 50px; }
+  .section { display: flex; flex-direction: column; gap: 16px; }
+  .section h2 { font-size: 20px; font-weight: 500; color: var(--text); border-bottom: 1px solid #2a2a32; padding-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+  .section h2 .num { width: 28px; height: 28px; border-radius: 50%; background: rgba(74,158,255,.15); color: var(--accent); font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  p { color: #b0b0c4; }
+  code { font-family: var(--mono); font-size: 13px; background: #1c1c24; border: 1px solid #2a2a38; border-radius: 4px; padding: 1px 6px; color: #88ccff; }
+  pre { background: #13131a; border: 1px solid #2a2a38; border-radius: 8px; padding: 18px 20px; overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.7; }
+  pre .comment { color: #4a5a70; }
+  pre .cmd     { color: #88ccff; }
+  pre .out     { color: #4ecf7e; }
+  .note { background: rgba(74,158,255,.07); border: 1px solid rgba(74,158,255,.18); border-radius: 8px; padding: 14px 18px; display: flex; gap: 10px; }
+  .note-icon { font-size: 18px; flex-shrink: 0; }
+  .note p { color: #8ab4f8; }
+  .warn { background: rgba(245,200,66,.07); border-color: rgba(245,200,66,.2); }
+  .warn p { color: #d4aa50; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .card { background: var(--bg1); border: 1px solid #2a2a38; border-radius: 10px; padding: 16px; }
+  .card h3 { font-size: 14px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+  .card p  { font-size: 13px; color: var(--text2); }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
+  .tag--rec { background: rgba(62,207,110,.12); color: var(--green); border: 1px solid rgba(62,207,110,.2); }
+  .tag--opt { background: rgba(74,158,255,.1); color: var(--accent); border: 1px solid rgba(74,158,255,.2); }
+  footer { text-align: center; padding: 32px; border-top: 1px solid #1e1e28; color: var(--text2); font-size: 13px; }
+  a { color: var(--accent); }
+  @media(max-width:580px){ .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>The Back Room</h1>
+  <p>Server Setup Guide — Dunbar Interprise</p>
+  <div class="badge">v1.0.0 · Internal Documentation</div>
+</div>
+
+<div class="content">
+
+  <div class="section">
+    <h2><span class="num">1</span> Requirements</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Node.js 20+</h3>
+        <p>Download from <a href="https://nodejs.org" target="_blank">nodejs.org</a>. Use the LTS version.</p>
+      </div>
+      <div class="card">
+        <h3>pnpm <span class="tag tag--rec">Recommended</span></h3>
+        <p>Faster installs. Run <code>npm install -g pnpm</code> after Node.</p>
+      </div>
+      <div class="card">
+        <h3>Git <span class="tag tag--opt">Optional</span></h3>
+        <p>For cloning and pulling updates. <a href="https://git-scm.com" target="_blank">git-scm.com</a></p>
+      </div>
+      <div class="card">
+        <h3>A static file server</h3>
+        <p><code>serve</code>, nginx, or Caddy. <code>pnpm add -g serve</code> is easiest.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span class="num">2</span> Build the App</h2>
+    <p>Clone or copy the project to your server machine, then:</p>
+<pre><span class="comment"># Install dependencies</span>
+<span class="cmd">pnpm install</span>
+
+<span class="comment"># Build for production</span>
+<span class="cmd">pnpm build</span>
+
+<span class="comment"># Output is in the /dist folder</span>
+<span class="out">✓ built in 3.2s → dist/</span></pre>
+  </div>
+
+  <div class="section">
+    <h2><span class="num">3</span> Serve It Locally</h2>
+    <p>After building, serve the <code>dist/</code> folder on your local network:</p>
+<pre><span class="comment"># Install serve globally (one-time)</span>
+<span class="cmd">pnpm add -g serve</span>
+
+<span class="comment"># Serve on port 8080, accessible on LAN</span>
+<span class="cmd">serve dist -l 8080</span>
+
+<span class="comment"># Anyone on the same WiFi can access via:</span>
+<span class="out">http://YOUR_LAN_IP:8080</span>
+<span class="comment"># e.g. http://192.168.1.42:8080</span></pre>
+    <div class="note">
+      <span class="note-icon">💡</span>
+      <p>Find your LAN IP: run <code>ipconfig</code> (Windows) or <code>ifconfig</code> / <code>ip addr</code> (Linux/Mac). Look for the <code>192.168.x.x</code> or <code>10.x.x.x</code> address under your WiFi adapter.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span class="num">4</span> Auto-start on Boot (Linux)</h2>
+    <p>Create a systemd service so The Back Room starts automatically when the server boots:</p>
+<pre><span class="comment"># Create service file</span>
+<span class="cmd">sudo nano /etc/systemd/system/backroom.service</span></pre>
+<pre><span class="comment">[Unit]
+Description=The Back Room
+After=network.target
+
+[Service]
+Type=simple
+User=</span><span class="out">youruser</span><span class="comment">
+WorkingDirectory=/path/to/backroom/dist
+ExecStart=/usr/local/bin/serve . -l 8080
+Restart=always
+
+[Install]
+WantedBy=multi-user.target</span></pre>
+<pre><span class="comment"># Enable and start</span>
+<span class="cmd">sudo systemctl daemon-reload</span>
+<span class="cmd">sudo systemctl enable backroom</span>
+<span class="cmd">sudo systemctl start backroom</span>
+
+<span class="comment"># Check status</span>
+<span class="cmd">sudo systemctl status backroom</span></pre>
+  </div>
+
+  <div class="section">
+    <h2><span class="num">5</span> Auto-start on Boot (Windows)</h2>
+<pre><span class="comment"># Option 1: Task Scheduler (GUI)
+# Search "Task Scheduler" → Create Basic Task
+# Trigger: "At startup"
+# Action: Start a program
+# Program: C:\Users\YOU\AppData\Roaming\npm\serve.cmd
+# Arguments: C:\path\to\backroom\dist -l 8080</span>
+
+<span class="comment"># Option 2: PM2 process manager</span>
+<span class="cmd">npm install -g pm2 pm2-windows-startup</span>
+<span class="cmd">cd C:\path\to\backroom\dist</span>
+<span class="cmd">pm2 serve . 8080 --name backroom</span>
+<span class="cmd">pm2 save</span>
+<span class="cmd">pm2-startup install</span></pre>
+  </div>
+
+  <div class="section">
+    <h2><span class="num">6</span> nginx Config (Advanced)</h2>
+    <p>For production use with a domain name or SSL:</p>
+<pre><span class="comment">server {
+    listen 80;
+    server_name backroom.local;   # or your domain
+
+    root /path/to/backroom/dist;
+    index index.html;
+
+    # SPA fallback
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Cache static assets
+    location ~* \.(js|css|png|svg|woff2)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}</span></pre>
+    <div class="note warn">
+      <span class="note-icon">⚠️</span>
+      <p>All user data is stored in each user's browser localStorage — it does not sync across devices or browsers. For multi-device sync you'd need a real backend.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span class="num">7</span> Network Firewall</h2>
+    <p>Open the port in your OS firewall so other devices can reach it:</p>
+<pre><span class="comment"># Linux (ufw)</span>
+<span class="cmd">sudo ufw allow 8080/tcp</span>
+
+<span class="comment"># Windows Firewall (PowerShell, as admin)</span>
+<span class="cmd">New-NetFirewallRule -DisplayName "BackRoom" -Direction Inbound -Protocol TCP -LocalPort 8080 -Action Allow</span></pre>
+  </div>
+
+  <div class="section">
+    <h2><span class="num">8</span> Updating</h2>
+<pre><span class="comment"># Pull latest changes (if using git)</span>
+<span class="cmd">git pull</span>
+
+<span class="comment"># Rebuild</span>
+<span class="cmd">pnpm install && pnpm build</span>
+
+<span class="comment"># Restart service (Linux)</span>
+<span class="cmd">sudo systemctl restart backroom</span></pre>
+  </div>
+
+</div>
+
+<footer>
+  The Back Room · Dunbar Interprise · Internal documentation — do not distribute
+</footer>
+</body>
+</html>

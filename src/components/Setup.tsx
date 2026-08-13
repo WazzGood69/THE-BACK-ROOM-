@@ -1,19 +1,24 @@
 import { useState } from "react"
 import { User } from "../types"
-import { findUserByUsername, hashPw, pickAvatar, saveUser, setMe } from "../store"
+import { findUserByUsername, hashPw, pickAvatar, saveUser, setMe, ALL_AVATARS } from "../store"
+import { TBRSymbol } from "./Boot"
+import { AvatarDisplay } from "./Settings"
 
 interface Props { onDone: (user: User) => void }
 
-type Step = "username" | "password" | "confirm"
+type Step = "username" | "avatar" | "password"
 
 export default function Setup({ onDone }: Props) {
   const [step, setStep]       = useState<Step>("username")
   const [username, setUsername] = useState("")
+  const [avatar, setAvatar]   = useState(pickAvatar)
+  const [customUrl, setCustomUrl] = useState("")
   const [wantPw, setWantPw]   = useState<boolean | null>(null)
   const [pw, setPw]           = useState("")
   const [pw2, setPw2]         = useState("")
   const [err, setErr]         = useState("")
-  const [avatar]              = useState(pickAvatar)
+
+  const displayAvatar = customUrl || avatar
 
   function submitUsername() {
     const name = username.trim()
@@ -21,15 +26,14 @@ export default function Setup({ onDone }: Props) {
     if (name.length < 3) { setErr("At least 3 characters."); return }
     if (!/^[a-zA-Z0-9_-]+$/.test(name)) { setErr("Letters, numbers, _ and - only."); return }
     if (findUserByUsername(name)) { setErr("That username is taken."); return }
-    setErr("")
-    setStep("password")
+    setErr(""); setStep("avatar")
   }
 
   function submitPassword() {
     if (wantPw === null) { setErr("Choose an option."); return }
     if (!wantPw) { finishSetup(null); return }
     if (pw.length < 4) { setErr("Password must be at least 4 characters."); return }
-    if (pw !== pw2)  { setErr("Passwords don't match."); return }
+    if (pw !== pw2) { setErr("Passwords don't match."); return }
     finishSetup(pw)
   }
 
@@ -39,31 +43,38 @@ export default function Setup({ onDone }: Props) {
       username: username.trim(),
       passwordHash: password ? hashPw(password) : null,
       createdAt: Date.now(),
-      avatar,
+      avatar: displayAvatar,
     }
     saveUser(user)
     setMe(user)
     onDone(user)
   }
 
+  const totalSteps = 3
+  const stepIdx = step === "username" ? 0 : step === "avatar" ? 1 : 2
+
   return (
     <div className="setup-shell">
       <div className="setup-card">
         <div className="setup-logo">
-          <BackRoomMark />
+          <TBRSymbol size={26} />
           <span className="setup-brand">The Back Room</span>
         </div>
 
         <div className="setup-step-indicator">
-          <span className={step === "username" ? "ssi-dot ssi-active" : "ssi-dot ssi-done"} />
-          <span className={step === "password" ? "ssi-dot ssi-active" : step === "confirm" ? "ssi-dot ssi-done" : "ssi-dot"} />
+          {Array.from({ length: totalSteps }).map((_, i) => (
+            <span key={i} className={`ssi-dot ${i === stepIdx ? "ssi-active" : i < stepIdx ? "ssi-done" : ""}`} />
+          ))}
         </div>
 
+        {/* Step 1 — Username */}
         {step === "username" && (
           <div className="setup-section">
-            <div className="setup-avatar">{avatar}</div>
+            <div className="setup-avatar-preview">
+              <AvatarDisplay avatar={displayAvatar} size={60} />
+            </div>
             <h2 className="setup-heading">Choose your username</h2>
-            <p className="setup-sub">This is how others will find you in The Back Room.</p>
+            <p className="setup-sub">This is how others find you in The Back Room.</p>
             <input
               className="setup-input"
               placeholder="e.g. shadow_fox"
@@ -78,10 +89,50 @@ export default function Setup({ onDone }: Props) {
           </div>
         )}
 
+        {/* Step 2 — Avatar */}
+        {step === "avatar" && (
+          <div className="setup-section">
+            <div className="setup-avatar-preview">
+              <AvatarDisplay avatar={displayAvatar} size={64} />
+            </div>
+            <h2 className="setup-heading">Pick your avatar</h2>
+            <p className="setup-sub">Choose an emoji or paste an image URL.</p>
+
+            <div className="setup-emoji-grid">
+              {ALL_AVATARS.map(e => (
+                <button key={e}
+                  className={`setup-emoji-btn ${avatar === e && !customUrl ? "setup-emoji-btn--on" : ""}`}
+                  onClick={() => { setAvatar(e); setCustomUrl(""); setErr("") }}>
+                  {e}
+                </button>
+              ))}
+            </div>
+
+            <div className="setup-url-row">
+              <input
+                className="setup-input"
+                placeholder="Or paste an image URL…"
+                value={customUrl}
+                onChange={e => { setCustomUrl(e.target.value); setErr("") }}
+              />
+              {customUrl && (
+                <button className="setup-btn-ghost" onClick={() => setCustomUrl("")}>✕</button>
+              )}
+            </div>
+
+            {err && <p className="setup-err">{err}</p>}
+            <div className="setup-row">
+              <button className="setup-btn-ghost" onClick={() => { setStep("username"); setErr("") }}>← Back</button>
+              <button className="setup-btn" onClick={() => { setErr(""); setStep("password") }}>Continue →</button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3 — Password */}
         {step === "password" && (
           <div className="setup-section">
             <h2 className="setup-heading">Set a password?</h2>
-            <p className="setup-sub">Protect your account with a password. Optional, but recommended.</p>
+            <p className="setup-sub">Protect your account. Optional, but recommended.</p>
             <div className="setup-radio-group">
               <label className={`setup-radio ${wantPw === true ? "setup-radio--on" : ""}`}>
                 <input type="radio" name="pw" checked={wantPw === true}
@@ -91,7 +142,7 @@ export default function Setup({ onDone }: Props) {
               <label className={`setup-radio ${wantPw === false ? "setup-radio--on" : ""}`}>
                 <input type="radio" name="pw" checked={wantPw === false}
                   onChange={() => { setWantPw(false); setErr("") }} />
-                <span>No thanks, skip</span>
+                <span>Skip for now</span>
               </label>
             </div>
             {wantPw && (
@@ -106,28 +157,14 @@ export default function Setup({ onDone }: Props) {
             )}
             {err && <p className="setup-err">{err}</p>}
             <div className="setup-row">
-              <button className="setup-btn-ghost" onClick={() => { setStep("username"); setErr("") }}>← Back</button>
+              <button className="setup-btn-ghost" onClick={() => { setStep("avatar"); setErr("") }}>← Back</button>
               <button className="setup-btn" onClick={submitPassword}>
-                {wantPw ? "Create Account" : "Skip & Enter"}
+                {wantPw ? "Create Account" : "Enter The Back Room"}
               </button>
             </div>
           </div>
         )}
       </div>
     </div>
-  )
-}
-
-function BackRoomMark() {
-  return (
-    <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-      <rect x="6" y="4" width="24" height="28" rx="1.5" fill="#0a0a1a" stroke="currentColor" strokeWidth="1.2" opacity="0.5"/>
-      <rect x="8" y="6" width="20" height="24" rx="1" fill="#0a0a1a" stroke="currentColor" strokeWidth="1.2"/>
-      <rect x="10" y="8" width="7" height="9" rx=".8" stroke="currentColor" strokeWidth=".9" opacity="0.6"/>
-      <rect x="19" y="8" width="7" height="9" rx=".8" stroke="currentColor" strokeWidth=".9" opacity="0.6"/>
-      <rect x="10" y="20" width="16" height="7" rx=".8" stroke="currentColor" strokeWidth=".9" opacity="0.6"/>
-      <circle cx="18" cy="18" r="2" fill="currentColor" opacity="0.8"/>
-      <path d="M17 18.5 L16.2 22 L19.8 22 L19 18.5" fill="currentColor" opacity="0.8"/>
-    </svg>
   )
 }

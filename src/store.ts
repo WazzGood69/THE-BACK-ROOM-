@@ -1,4 +1,4 @@
-import { User, Conversation, Message, FriendRequest, Theme } from "./types"
+import { User, Conversation, Message, FriendRequest, Theme, Broadcast } from "./types"
 
 // ── Simple hash (not cryptographic, just obfuscation) ──────────────────
 export function hashPw(pw: string): string {
@@ -9,13 +9,16 @@ export function hashPw(pw: string): string {
 
 // ── Persistence keys ───────────────────────────────────────────────────
 const K = {
-  me:       "tbr_me",
-  users:    "tbr_users",
-  reqs:     "tbr_reqs",
-  convos:   "tbr_convos",
-  msgs:     "tbr_msgs",
-  theme:    "tbr_theme",
-  booted:   "tbr_booted",
+  me:          "tbr_me",
+  users:       "tbr_users",
+  reqs:        "tbr_reqs",
+  convos:      "tbr_convos",
+  msgs:        "tbr_msgs",
+  theme:       "tbr_theme",
+  booted:      "tbr_booted",
+  broadcasts:  "tbr_broadcasts",
+  adminPw:     "tbr_admin_pw",
+  broadcastRead:"tbr_bc_read",
 }
 
 function get<T>(key: string, fallback: T): T {
@@ -38,7 +41,10 @@ export function findUserByUsername(name: string): User | null {
 
 // ── Current user ──────────────────────────────────────────────────────
 export function getMe(): User | null { return get<User | null>(K.me, null) }
-export function setMe(u: User | null) { set(K.me, u) }
+export function setMe(u: User | null) {
+  set(K.me, u)
+  if (u) saveUser(u)
+}
 
 // ── Theme ─────────────────────────────────────────────────────────────
 export function getTheme(): Theme { return get<Theme>(K.theme, "black") }
@@ -136,14 +142,48 @@ export function sendMsg(convoId: string, from: User, text: string): Message {
   const m: Message = { id: uid(), conversationId: convoId, fromId: from.id, fromUsername: from.username, text, createdAt: Date.now() }
   all[convoId] = [...(all[convoId] ?? []), m]
   set(K.msgs, all)
-  // Update convo lastMessage
   const convos = getConvos().map(c => c.id === convoId ? { ...c, lastMessage: text, lastAt: Date.now() } : c)
   saveConvos(convos)
   return m
 }
 
+// ── Broadcasts (admin → all users) ───────────────────────────────────
+export function getBroadcasts(): Broadcast[] {
+  return get<Broadcast[]>(K.broadcasts, []).sort((a, b) => b.createdAt - a.createdAt)
+}
+export function addBroadcast(text: string, type: Broadcast["type"] = "info"): Broadcast {
+  const b: Broadcast = { id: uid(), text, type, createdAt: Date.now() }
+  set(K.broadcasts, [b, ...getBroadcasts()])
+  return b
+}
+export function deleteBroadcast(id: string) {
+  set(K.broadcasts, getBroadcasts().filter(b => b.id !== id))
+}
+export function clearBroadcasts() { set(K.broadcasts, []) }
+
+export function getReadBroadcastIds(): string[] { return get<string[]>(K.broadcastRead, []) }
+export function markBroadcastRead(id: string) {
+  const ids = getReadBroadcastIds()
+  if (!ids.includes(id)) set(K.broadcastRead, [...ids, id])
+}
+export function getUnreadBroadcasts(): Broadcast[] {
+  const read = getReadBroadcastIds()
+  return getBroadcasts().filter(b => !read.includes(b.id))
+}
+
+// ── Admin auth ────────────────────────────────────────────────────────
+export function getAdminPwHash(): string | null { return localStorage.getItem(K.adminPw) }
+export function setAdminPw(pw: string) { localStorage.setItem(K.adminPw, hashPw(pw)) }
+export function verifyAdminPw(pw: string): boolean {
+  const stored = getAdminPwHash()
+  if (!stored) return false
+  return stored === hashPw(pw)
+}
+export function adminPwSet(): boolean { return !!getAdminPwHash() }
+
 // ── Avatars ───────────────────────────────────────────────────────────
-const AVATARS = ["🦊","🐺","🐻","🐼","🦁","🐯","🐨","🐸","🦋","🦄","🐙","🦑","🦅","🦉","🐬","🐧","🦊","🦝","🦨","🦡"]
+const AVATARS = ["🦊","🐺","🐻","🐼","🦁","🐯","🐨","🐸","🦋","🦄","🐙","🦑","🦅","🦉","🐬","🐧","🦝","🦨","🦡","🐊","🦖","🦎","🐲","🌙","⭐","🔥","❄️","🌊","🍄","🌿"]
 export function pickAvatar() { return AVATARS[Math.floor(Math.random() * AVATARS.length)] }
+export const ALL_AVATARS = AVATARS
 
 function uid() { return Math.random().toString(36).slice(2, 10) }

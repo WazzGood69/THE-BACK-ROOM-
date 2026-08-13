@@ -1,6 +1,7 @@
 import React from "react"
 import { Theme } from "../types"
 import { TBRSymbol } from "./Boot"
+import { AvatarDisplay } from "./Settings"
 
 interface Props {
   theme: Theme
@@ -8,9 +9,10 @@ interface Props {
   username: string
   avatar: string
   onSettings: () => void
+  onLogoClick?: () => void
 }
 
-export default function Taskbar({ theme, onTheme, username, avatar, onSettings }: Props) {
+export default function Taskbar({ theme, onTheme, username, avatar, onSettings, onLogoClick }: Props) {
   const [time, setTime] = React.useState(new Date())
   React.useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -25,25 +27,28 @@ export default function Taskbar({ theme, onTheme, username, avatar, onSettings }
   return (
     <div className="taskbar">
       {/* Brand */}
-      <div className="taskbar-brand">
+      <div className="taskbar-brand" onClick={onLogoClick} style={{ cursor: onLogoClick ? "pointer" : "default" }}>
         <TBRSymbol size={22} />
         <span className="taskbar-name">The Back Room</span>
       </div>
 
       {/* Center — user chip */}
       <div className="taskbar-mid">
-        <span className="taskbar-user-chip">{avatar} @{username}</span>
+        <span className="taskbar-user-chip">
+          <AvatarDisplay avatar={avatar} size={18} />
+          <span style={{ marginLeft: 5 }}>@{username}</span>
+        </span>
       </div>
 
       {/* Right controls */}
       <div className="taskbar-right">
         {/* Theme switcher */}
         <div className="theme-switcher">
-          {(["black","white","oldschool"] as Theme[]).map(t => (
+          {(["black","white","oldschool","oxide","midnight","sepia"] as Theme[]).map(t => (
             <button key={t}
               className={`theme-dot theme-dot--${t} ${theme === t ? "theme-dot--on" : ""}`}
               onClick={() => onTheme(t)}
-              title={{ black:"Graphite", white:"Cloud", oldschool:"Old School" }[t]}
+              title={{ black:"Graphite", white:"Cloud", oldschool:"Old School", oxide:"Oxide", midnight:"Midnight", sepia:"Sepia" }[t]}
               aria-label={t}
             />
           ))}
